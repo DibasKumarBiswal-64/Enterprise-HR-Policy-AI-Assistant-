@@ -133,7 +133,7 @@ asternova-hr-copilot/
 ### 1. Clone the repository
 
 ```bash
-git clone <your-repository-url>
+git clone <https://github.com/DibasKumarBiswal-64/Enterprise-HR-Policy-AI-Assistant-.git>
 cd asternova-hr-copilot
 ```
 
