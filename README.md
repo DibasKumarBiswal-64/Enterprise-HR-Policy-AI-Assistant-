@@ -1,262 +1,236 @@
-# Enterprise HR Policy & Employee Support Agentic RAG Copilot
+# AsterNova — Enterprise HR Policy & Employee Support Copilot
 
-An end-to-end Forward Deployed Engineer (FDE) project that converts an Agentic RAG workflow into a deployable internal HR product using LangGraph, FastAPI, Pinecone, OpenAI, Tavily, HTML, CSS, and JavaScript.
+An Agentic RAG application that helps employees find accurate answers from internal HR documents using **LangGraph, FastAPI, OpenAI, Pinecone, and Tavily**.
 
-## 1. Business Problem
+The application retrieves internal knowledge, evaluates evidence, rewrites queries when necessary, uses external search as a controlled fallback, and generates source-grounded answers.
 
-### Customer
-NovaRetail, a fictional 3,000-employee retail company.
+## Features
 
-### Problem
-The HR team maintains many internal documents: leave policies, remote-work rules, payroll guidance, benefits information, onboarding procedures, conduct policies, and HR operations runbooks.
+- **Agentic RAG:** Stateful workflows with LangGraph and conditional routing.
+- **Semantic Search:** Retrieve relevant HR documents using Pinecone.
+- **Evidence Grading:** Evaluate retrieved context before generating answers.
+- **Query Rewriting:** Improve weak queries and retry retrieval with bounded attempts.
+- **Web Search Fallback:** Use Tavily when internal evidence is insufficient and external search is appropriate.
+- **Grounded Responses:** Provide answers with relevant source references.
+- **Document Ingestion:** Upload and index HR knowledge documents.
+- **REST API:** Expose functionality through FastAPI.
+- **Interactive UI:** Employee-facing chat interface built with HTML, CSS, and JavaScript.
+- **Audit Logging:** Track workflow decisions and application events.
+- **Containerization:** Support reproducible deployment using Docker.
 
-Employees still send repetitive HR questions because they do not know where the correct policy lives, keyword search returns too many documents, generic chatbots may invent policy details, internal documents may not cover current public regulations, and some questions require fresh external information.
-
-### Example
-An employee asks:
-
-> “How many annual leave days do employees receive?”
-
-The answer exists in the private company HR knowledge base, so the system should answer from internal policy without searching the public internet.
-
-Another employee asks:
-
-> “What are the latest public holiday rules in Bangladesh?”
-
-The internal KB may not contain current public information. The system should recognize weak private evidence, use external search, grade the evidence, and clearly identify the answer as external information requiring HR validation.
-
-### Business Goal
-Build a secure HR Policy Copilot that:
-
-1. Searches trusted private HR knowledge first.
-2. Checks whether retrieved evidence is sufficient.
-3. Uses web search only when private knowledge is insufficient.
-4. Rewrites weak queries and retries.
-5. Generates grounded answers.
-6. Shows the LangGraph decision path for transparency and debugging.
-7. Lets authorized HR staff add new company documents.
-
-## 2. Why This Is an FDE Project
-
-A Forward Deployed Engineer does more than build an LLM notebook. The FDE translates a customer problem into a usable product:
+## Agentic RAG Workflow
 
 ```text
-Customer Problem
-      ↓
-Discovery & Requirements
-      ↓
-Solution Architecture
-      ↓
-Data / Knowledge Integration
-      ↓
-Agentic RAG Development
-      ↓
-API Development
-      ↓
-User Interface
-      ↓
-Security + Audit + Testing
-      ↓
-Deployment
-      ↓
-Observe + Improve
+Employee Question
+       |
+       v
+  Query Router
+       |
+       v
+Retrieve Internal HR Knowledge
+       |
+       v
+    Grade Evidence
+       |
+   +---+---+
+   |       |
+Sufficient Weak
+   |       |
+   v       v
+Generate   Rewrite Query
+Answer        |
+          Retry Retrieval
+              |
+              v
+        Grade Evidence
+              |
+        +-----+-----+
+        |           |
+    Sufficient   Insufficient
+        |           |
+        v           v
+    Generate    Check External
+    Answer      Search Eligibility
+                    |
+                    v
+               Tavily Search
+                    |
+                    v
+              Grade Web Results
+                    |
+               +----+----+
+               |         |
+           Sufficient   Weak
+               |         |
+               v         v
+         Cited Answer  Abstain or
+                       Refer to HR
 ```
 
-## 3. Simple Architecture
+**Key principle:** Internal HR policies remain the source of truth for company-specific rules. External information is clearly distinguished from internal guidance, and unsupported answers are not fabricated.
 
-![System architecture](docs/architecture.png)
+## Technology Stack
 
-```text
-Employee / HR User
-        ↓
-HTML/CSS/JavaScript Web UI
-        ↓ POST /api/chat
-FastAPI
-        ↓
-LangGraph Agentic RAG Controller
-        ↓
- ┌───────────────┬─────────────────┐
- ↓               ↓
-Private HR KB    Tavily Web Search
-Pinecone         (fallback only)
- └───────┬───────┘
-         ↓
-OpenAI LLM
-Grounded Answer
-```
+| Component | Technology |
+|---|---|
+| Agent orchestration | LangGraph |
+| LLM | OpenAI |
+| Embeddings | OpenAI `text-embedding-3-small` |
+| Vector database | Pinecone |
+| Web search | Tavily |
+| Backend | FastAPI |
+| Frontend | HTML, CSS, JavaScript |
+| Metadata and audit | SQLite for local development; PostgreSQL for production |
+| Testing | Pytest |
+| Deployment | Docker |
 
-## 4. Agentic RAG Workflow
+## Project Structure
 
 ```text
-Question
-   ↓
-[1] Route Question
-   ├── Greeting / simple chat ─────────→ Direct Answer
-   │
-   └── HR / policy question
-                ↓
-[2] Retrieve from Private Pinecone KB
-                ↓
-[3] Grade Private Evidence
-       ┌────────┴────────┐
-       │                 │
-     GOOD               WEAK
-       │                 │
-       ▼                 ▼
-Generate from KB   [4] Tavily Web Search
-                         ↓
-                  [5] Grade Web Evidence
-                    ┌────┴─────┐
-                    │          │
-                  GOOD        WEAK
-                    │          │
-                    ▼          ▼
-              Generate Web  [6] Rewrite Query
-                               ↓
-                         Retry Private KB
-                               ↓
-                        Max retry reached?
-                               ↓
-                    Insufficient Evidence
-```
-
-## 5. Technology Stack
-
-| Layer | Technology | Purpose |
-|---|---|---|
-| Agent workflow | LangGraph | Stateful routing and conditional decisions |
-| LLM | OpenAI | Routing, grading, rewriting, answer generation |
-| Embeddings | OpenAI `text-embedding-3-small` | Vector embeddings |
-| Vector DB | Pinecone | Private enterprise HR knowledge base |
-| External search | Tavily | Fallback when company HR KB is insufficient |
-| API | FastAPI | Backend and REST endpoints |
-| Frontend | HTML/CSS/JavaScript | Employee-facing interface |
-| Audit | SQLite | Decision-path logging |
-| Packaging | Docker | Reproducible deployment |
-
-## 6. Project Structure
-
-```text
-Enterprise-HR-Policy-Agentic-RAG-Copilot/
+asternova-hr-copilot/
 ├── app/
-│   ├── api/routes.py
-│   ├── core/config.py
-│   ├── core/logging.py
-│   ├── rag/state.py
-│   ├── rag/vectorstore.py
-│   ├── rag/workflow.py
-│   ├── services/audit.py
-│   ├── services/ingestion.py
+│   ├── api/
+│   │   ├── routes.py
+│   │   └── dependencies.py
+│   ├── core/
+│   │   ├── config.py
+│   │   ├── logging.py
+│   │   └── security.py
+│   ├── rag/
+│   │   ├── state.py
+│   │   ├── nodes.py
+│   │   ├── retrieval.py
+│   │   ├── grading.py
+│   │   └── workflow.py
+│   ├── services/
+│   │   ├── ingestion.py
+│   │   ├── search.py
+│   │   └── audit.py
 │   └── main.py
-├── data/sample_kb/
-│   ├── company_hr_handbook.md
-│   └── hr_operations_runbook.md
+├── data/
+│   └── sample_kb/
+│       ├── employee_handbook.md
+│       ├── leave_policy.md
+│       └── remote_work_policy.md
 ├── static/
 │   ├── css/style.css
 │   └── js/app.js
-├── templates/index.html
-├── uploads/
+├── templates/
+│   └── index.html
+├── tests/
+├── scripts/
+│   └── ingest_sample_kb.py
+├── .env.example
+├── .gitignore
 ├── Dockerfile
-├── ingest_sample_kb.py
 ├── requirements.txt
 ├── run.py
 └── README.md
 ```
 
-## 7. Setup
+## Getting Started
 
-### Step 1 — Create and activate a virtual environment
+### 1. Clone the repository
 
 ```bash
-python -m venv venv
+git clone <your-repository-url>
+cd asternova-hr-copilot
+```
+
+### 2. Create a virtual environment
+
+```bash
+python -m venv .venv
 ```
 
 Windows:
 
-```bash
-venv\Scripts\activate
+```powershell
+.venv\Scripts\Activate.ps1
 ```
 
 macOS/Linux:
 
 ```bash
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
-### Step 2 — Install dependencies
+### 3. Install dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Step 3 — Configure environment
+### 4. Configure environment variables
 
-Copy `.env.example` to `.env` and add your keys.
+Create a `.env` file using `.env.example` and configure your API keys.
 
 ```env
-OPENAI_API_KEY=your_openai_api_key_here
-TAVILY_API_KEY=your_tavily_api_key_here
-PINECONE_API_KEY=your_pinecone_api_key_here
-PINECONE_INDEX_NAME=fde-hr-policy-rag
-PINECONE_NAMESPACE=company-hr-kb
+APP_ENV=development
+APP_PORT=8080
+
+OPENAI_API_KEY=
 OPENAI_MODEL=gpt-4o-mini
 EMBEDDING_MODEL=text-embedding-3-small
-ADMIN_API_KEY=change-me-in-production
-APP_ENV=development
+
+PINECONE_API_KEY=
+PINECONE_INDEX_NAME=asternova-hr-kb
+PINECONE_NAMESPACE=company-hr-kb
+
+TAVILY_API_KEY=
+
+DATABASE_URL=sqlite:///./hr_copilot.db
+
+MAX_RETRIEVAL_RETRIES=2
+RETRIEVAL_TOP_K=5
+ENABLE_EXTERNAL_SEARCH=true
 ```
 
-### Step 4 — Load sample HR knowledge
+Configure the Pinecone index dimension to match the selected embedding model. Keep all credentials out of source control.
+
+### 5. Ingest sample documents
 
 ```bash
-python ingest_sample_kb.py
+python scripts/ingest_sample_kb.py
 ```
 
-### Step 5 — Run the application
+### 6. Run the application
 
 ```bash
 python run.py
 ```
 
-Open `http://127.0.0.1:8080` and FastAPI docs at `http://127.0.0.1:8080/docs`.
+Open the application:
 
-## 8. Classroom Demo Scenarios
+- **Web interface:** `http://127.0.0.1:8080`
+- **API documentation:** `http://127.0.0.1:8080/docs`
 
-### Demo A — Private KB Success
-Ask: **How many annual leave days do employees receive?**
+These commands assume the repository implements the listed scripts and configuration.
 
-Expected path:
+## Demo Scenarios
 
-```text
-Router → KB
-Private KB Retrieval
-KB Grade → GOOD
-Generate from Private KB
-```
+| Scenario | Expected Behavior |
+|---|---|
+| Internal HR question | Answer from relevant internal documents |
+| Remote-work policy | Retrieve and cite the applicable policy |
+| Weak retrieval results | Rewrite the query and retry within configured limits |
+| Current public information | Search external sources when appropriate and label the evidence |
+| Insufficient evidence | Explain the limitation instead of hallucinating |
+| Unauthorized document access | Reject access to restricted information |
 
-### Demo B — Company Policy Question
-Ask: **How many days per week can I work remotely?**
+## Security Considerations
 
-Expected result: answer from the internal HR handbook, without web search.
+- Protect API keys and sensitive documents.
+- Enforce authentication and role-based authorization for protected endpoints.
+- Apply document-level access controls during retrieval.
+- Validate uploaded documents and restrict file sizes.
+- Treat retrieved documents and web content as untrusted input.
+- Apply timeouts, rate limits, and bounded retries.
+- Keep audit logs free of unnecessary personal information.
+- Require human review for consequential HR decisions.
 
-### Demo C — External / Current Information
-Ask: **What are the latest public holiday rules in Bangladesh?**
+**Note:** Production deployment requires implementation and testing of these security controls. Sample HR documents are illustrative and must be replaced with approved organizational policies before real-world use.
 
-Expected path when internal HR documents are insufficient:
+## License
 
-```text
-Router → KB
-Private KB Retrieval
-KB Grade → WEAK
-Tavily Search
-Web Grade → GOOD
-Web Answer
-```
-
-### Demo D — Weak Query Rewrite
-Ask an ambiguous HR question such as: **What happens if mine is wrong?**
-
-If neither private nor web evidence is sufficient, the workflow can rewrite the query, retry the KB, and eventually stop with insufficient evidence rather than hallucinating.
-
-## 9. What Changed From the IT Support Reference
-
-The application structure, graph topology, API shape, retrieval logic, ingestion layer, audit layer, Docker setup, and frontend behavior remain the same. Only domain-specific elements were changed: HR prompts, HR configuration names, UI wording, example questions, sample documents, and documentation.
+Add an appropriate open-source license before publishing the repository.
