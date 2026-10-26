@@ -8,7 +8,7 @@
 
 5. **`app/services/ingestion.py`** — Build the document loading and chunking pipeline for PDF, TXT, Markdown, and DOCX files.
 
-6. **`app/rag/vectorstore.py`** — Configure OpenAI embeddings, connect with Pinecone, store document vectors, and create the retriever.
+6. **`app/rag/vectorestore.py`** — Configure OpenAI embeddings, connect with Pinecone, store document vectors, and create the retriever.
 
 7. **`ingest_sample_kb.py`** — Create a simple script that loads the sample documents, chunks them, and uploads them into Pinecone.
 
